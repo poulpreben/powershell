@@ -17,7 +17,8 @@ if (!$job) {
 
 $SettingsFile = "C:\Temp\Job."+$job.TargetFile+".Settings.csv"
 
-if ($Mode -eq "WriteBack") {
+# Running some initial tests
+if ($Mode -eq "WriteThrough") {
     if (Test-Path $SettingsFile) {
         Write-Error "It seems the script was not properly stopped before this job run. Review $SettingsFile and perform manual clean-up."
         Exit 2
@@ -25,7 +26,7 @@ if ($Mode -eq "WriteBack") {
         Write-Host "Create the peer settings file: $SettingsFile"
         $SettingsFileHandle = New-Item $SettingsFile -Type File
     }
-} elseif ($Mode -eq "WriteThrough") {
+} elseif ($Mode -eq "WriteBack") {
     if (Test-Path $SettingsFile) {
         Write-Host "Now we just have to revert the acceleration mode."
         $SettingsFileHandle = Get-Content $SettingsFile
@@ -35,10 +36,12 @@ if ($Mode -eq "WriteBack") {
     }
 }
 
+# It's showtime!
+
 if ($Mode -eq "WriteThrough") {
-    Write-Host "Connecting to vCenter"
+    Write-Host "Connecting to VMware vCenter Server"
     $vmware = Connect-VIServer -Server vcenter -User root -Password vmware -WarningAction SilentlyContinue
-    Write-Host "Connected to vCenter"
+    Write-Host "Connected to VMware vCenter Server"
 
     "Getting objects in backup job"
     $objects = $job.GetObjectsInJob() | ?{$_.Type -eq "Include"}
@@ -82,13 +85,10 @@ if ($Mode -eq "WriteThrough") {
             $i = $is.Add($o.Name)
         }
     }
-
-
     Write-Host "Connecting to PernixData FVP Management Server"
 
     Import-Module PrnxCLI -ErrorAction SilentlyContinue
     $prnx = Connect-PrnxServer -NameOrIPAddress localhost -UserName root -Password vmware
-
 
     Write-Host "Getting list of included, powered on VMs with PernixData write-back caching enabled"
     $prnxVMs = Get-PrnxVM | Where-Object {($_.powerState -eq "poweredOn") -and ($_.effectivePolicy -eq "7")} | Where-Object {$_.Name -in $is}
@@ -119,6 +119,11 @@ if ($Mode -eq "WriteThrough") {
     }
     
 } elseif ($Mode -eq "WriteBack") {
+    Write-Host "Connecting to PernixData FVP Management Server"
+
+    Import-Module PrnxCLI -ErrorAction SilentlyContinue
+    $prnx = Connect-PrnxServer -NameOrIPAddress localhost -UserName root -Password vmware
+
     foreach ($vm in $SettingsFileHandle) {
         $VMName            = $vm.split(",")[0]
         $VMWBPeers         = $vm.split(",")[1]
