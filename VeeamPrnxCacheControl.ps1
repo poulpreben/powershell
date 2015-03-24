@@ -81,14 +81,14 @@ if ($Mode -eq "WriteThrough") {
             $i = $is.Add($o.Name)
         }
     }
-}
 
-Write-Host "Connecting to PernixData FVP Management Server"
 
-Import-Module PrnxCLI -ErrorAction SilentlyContinue
-$prnx = Connect-PrnxServer -NameOrIPAddress localhost -UserName root -Password vmware
+    Write-Host "Connecting to PernixData FVP Management Server"
 
-if ($Mode -eq "WriteThrough") {
+    Import-Module PrnxCLI -ErrorAction SilentlyContinue
+    $prnx = Connect-PrnxServer -NameOrIPAddress localhost -UserName root -Password vmware
+
+
     Write-Host "Getting list of included, powered on VMs with PernixData write-back caching enabled"
     $prnxVMs = Get-PrnxVM | Where-Object {($_.powerState -eq "poweredOn") -and ($_.effectivePolicy -eq "7")} | Where-Object {$_.Name -in $is}
     
