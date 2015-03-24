@@ -138,14 +138,4 @@ if ($Mode -eq "WriteThrough") {
     Remove-Item -Path $SettingsFile
 }
 
-foreach ($vm in $is) {
-    if ($Mode -eq "WriteThrough") {
-        # "WT for " + $vm
-        $CacheMode = Set-PrnxAccelerationPolicy -Name $vm -WriteThrough -WaitTimeSeconds 60
-    } elseif ($mode -eq "WriteBack") {
-        # "WB for " + $vm
-        $CacheMode = Set-PrnxAccelerationPolicy -Name $vm -WriteBack -NumWBPeers 0 -NumWBExternalPeers 0 -WaitTimeSeconds 60
-    }
-}
-
 Disconnect-PrnxServer -Connection $prnx > $null
