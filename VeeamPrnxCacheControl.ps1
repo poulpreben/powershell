@@ -32,6 +32,7 @@ if ($Mode -eq "WriteBack") {
     } else {
         Write-Host "If we want to stop, but there are no settings to be reverted, everything's just fine..."
         Exit 0
+    }
 }
 
 if ($Mode -eq "WriteThrough") {
