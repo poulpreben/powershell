@@ -17,7 +17,7 @@ if (!$job) {
 
 $SettingsFile = "C:\Temp\Job."+$job.TargetFile+".Settings.csv"
 
-if ($Mode -eq "WriteThrough") {
+if ($Mode -eq "WriteBack") {
     if (Test-Path $SettingsFile) {
         Write-Error "It seems the script was not properly stopped before this job run. Review $SettingsFile and perform manual clean-up."
         Exit 2
@@ -25,7 +25,7 @@ if ($Mode -eq "WriteThrough") {
         Write-Host "Create the peer settings file: $SettingsFile"
         $SettingsFileHandle = New-Item $SettingsFile -Type File
     }
-} elseif ( -and ($Mode -eq "WriteBack")) {
+} elseif ($Mode -eq "WriteThrough") {
     if (Test-Path $SettingsFile) {
         Write-Host "Now we just have to revert the acceleration mode."
         $SettingsFileHandle = Get-Content $SettingsFile
