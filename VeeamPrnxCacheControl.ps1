@@ -91,7 +91,7 @@ if ($Mode -eq "WriteThrough") {
     $prnx = Connect-PrnxServer -NameOrIPAddress localhost -UserName root -Password vmware
 
     Write-Host "Getting list of included, powered on VMs with PernixData write-back caching enabled"
-    $prnxVMs = Get-PrnxVM | Where-Object {($_.powerState -eq "poweredOn") -and ($_.effectivePolicy -eq "7")} | Where-Object {$_.Name -in $is}
+    $prnxVMs = Get-PrnxVM | Where-Object {($_.powerState -eq "poweredOn") -and ($_.effectivePolicy -eq "7")} | Where -property $_.Name -in -value $is
     
     foreach ($vm in $prnxVMs) {
         if ($vm.numWbExternalPeers -eq $null) {
