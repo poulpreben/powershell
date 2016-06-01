@@ -1,24 +1,33 @@
 Param ( 
     [Parameter(Mandatory=$true)][string]$JobName,
-    [Parameter(Mandatory=$true)][ValidateSet("WriteBack", "WriteThrough")][string]$Mode
+    [Parameter(Mandatory=$true)][ValidateSet('WriteBack', 'WriteThrough')][string]$Mode
 )
-cls
+Clear-Host
 
-Add-PSSnapin VMware.VimAutomation.Core -ErrorAction SilentlyContinue
-Add-PSSnapin VeeamPSSnapIn -ErrorAction SilentlyContinue
+if ( (Get-PSSnapin -Name VMware.VimAutomation.Core -ErrorAction SilentlyContinue) -eq $null ) {
+    Add-PsSnapin VMware.VimAutomation.Core
+} else {
+    throw 'Could not find vSphere PowerCLI'
+}
+
+if ( (Get-PSSnapin -Name VeeamPSSnapIn -ErrorAction SilentlyContinue) -eq $null ) {
+    Add-PsSnapin VeeamPSSnapIn
+} else {
+    throw 'Could not find Veeam PowerShell snapin'
+}
 
 $job = Get-VBRJob -Name $JobName
 
 # Verify the job exists
 if (!$job) {
-    Write-Error "Backup job not found!"
+    Write-Error 'Backup job not found!'
     Exit 2
 }
 
-$SettingsFile = "C:\Temp\Job."+$job.TargetFile+".Settings.csv"
+$SettingsFile = 'C:\Temp\Job.'+$job.TargetFile+'.Settings.csv'
 
 # Running some initial tests
-if ($Mode -eq "WriteThrough") {
+if ($Mode -eq 'WriteThrough') {
     if (Test-Path $SettingsFile) {
         Write-Error "It seems the script was not properly stopped before this job run. Review $SettingsFile and perform manual clean-up."
         Exit 2
@@ -26,9 +35,9 @@ if ($Mode -eq "WriteThrough") {
         Write-Host "Create the peer settings file: $SettingsFile"
         $SettingsFileHandle = New-Item $SettingsFile -Type File
     }
-} elseif ($Mode -eq "WriteBack") {
+} elseif ($Mode -eq 'WriteBack') {
     if (Test-Path $SettingsFile) {
-        Write-Host "Now we just have to revert the acceleration mode."
+        Write-Host 'Now we just have to revert the acceleration mode.'
         $SettingsFileHandle = Get-Content $SettingsFile
     } else {
         Write-Host "If we want to stop, but there are no settings to be reverted, everything's just fine..."
@@ -38,25 +47,25 @@ if ($Mode -eq "WriteThrough") {
 
 # It's showtime!
 
-if ($Mode -eq "WriteThrough") {
-    Write-Host "Connecting to VMware vCenter Server"
+if ($Mode -eq 'WriteThrough') {
+    Write-Host 'Connecting to VMware vCenter Server'
     $vmware = Connect-VIServer -Server vcenter -User root -Password vmware -WarningAction SilentlyContinue
-    Write-Host "Connected to VMware vCenter Server"
+    Write-Host 'Connected to VMware vCenter Server'
 
-    "Getting objects in backup job"
-    $objects = $job.GetObjectsInJob() | ?{$_.Type -eq "Include"}
-    $excludes = $job.GetObjectsInJob() | ?{$_.Type -eq "Exclude"}
+    'Getting objects in backup job'
+    $objects = $job.GetObjectsInJob() | Where-Object{$_.Type -eq 'Include'}
+    $excludes = $job.GetObjectsInJob() | Where-Object{$_.Type -eq 'Exclude'}
 
     # Initiate empty array for VMs to exclude
     [System.Collections.ArrayList]$es = @()
 
-    "Building list of excluded job objects"
+    'Building list of excluded job objects'
     foreach ($e in $excludes) {
         $e.Name
 
         # If the object added to the job is not a VM, find the contained VMs
         $view = Get-View -ViObject $e.Name | Get-VIObjectByVIView
-        if ($view.GetType().Name -ne "VirtualMachineImpl") {
+        if ($view.GetType().Name -ne 'VirtualMachineImpl') {
             foreach ($vm in ($view | Get-VM)) {
                 $i = $es.Add($vm.Name)
             }
@@ -66,7 +75,7 @@ if ($Mode -eq "WriteThrough") {
 
     }
 
-    "Building list of included objects"
+    'Building list of included objects'
     # Initiate empty array for VMs to include
     [System.Collections.ArrayList]$is = @()
 
@@ -75,7 +84,7 @@ if ($Mode -eq "WriteThrough") {
 
         # If the object added to the job is not a VM, find the contained VMs
         $view = Get-View -ViObject $o.Name | Get-VIObjectByVIView
-        if ($view.GetType().Name -ne "VirtualMachineImpl") {
+        if ($view.GetType().Name -ne 'VirtualMachineImpl') {
             foreach ($vm in ($view | Get-VM)) {
                 if ($es -notcontains $vm.Name) {
                     $i = $is.Add($vm.Name)
@@ -85,13 +94,13 @@ if ($Mode -eq "WriteThrough") {
             $i = $is.Add($o.Name)
         }
     }
-    Write-Host "Connecting to PernixData FVP Management Server"
+    Write-Host 'Connecting to PernixData FVP Management Server'
 
     Import-Module PrnxCLI -ErrorAction SilentlyContinue
     $prnx = Connect-PrnxServer -NameOrIPAddress localhost -UserName root -Password vmware
 
-    Write-Host "Getting list of included, powered on VMs with PernixData write-back caching enabled"
-    $prnxVMs = Get-PrnxVM | Where-Object {($_.powerState -eq "poweredOn") -and ($_.effectivePolicy -eq "7")} | Where -property $_.Name -in -value $is
+    Write-Host 'Getting list of included, powered on VMs with PernixData write-back caching enabled'
+    $prnxVMs = Get-PrnxVM | Where-Object {($_.powerState -eq 'poweredOn') -and ($_.effectivePolicy -eq '7')} | Where-Object -property $_.Name -in -value $is
     
     foreach ($vm in $prnxVMs) {
         if ($vm.numWbExternalPeers -eq $null) {
@@ -118,16 +127,16 @@ if ($Mode -eq "WriteThrough") {
         }
     }
     
-} elseif ($Mode -eq "WriteBack") {
-    Write-Host "Connecting to PernixData FVP Management Server"
+} elseif ($Mode -eq 'WriteBack') {
+    Write-Host 'Connecting to PernixData FVP Management Server'
 
     Import-Module PrnxCLI -ErrorAction SilentlyContinue
     $prnx = Connect-PrnxServer -NameOrIPAddress localhost -UserName root -Password vmware
 
     foreach ($vm in $SettingsFileHandle) {
-        $VMName            = $vm.split(",")[0]
-        $VMWBPeers         = $vm.split(",")[1]
-        $VMWBExternalPeers = $vm.split(",")[2]
+        $VMName            = $vm.split(',')[0]
+        $VMWBPeers         = $vm.split(',')[1]
+        $VMWBExternalPeers = $vm.split(',')[2]
 
         Write-Host "Transitioning $VMName into writeback mode with $VMWBPeers peers and $VMWBExternalPeers external peers"
             
